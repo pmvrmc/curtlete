@@ -1,0 +1,8 @@
+{
+  "name": "curtlete",
+  "version": "1.0.0",
+  "description": "Hacking webtask with Redis, LoL API and Twilio API",
+  "main": "index.js",
+  "author": "Pedro Matos de Carvalho",
+  "license": "MIT"
+}
