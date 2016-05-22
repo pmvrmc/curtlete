@@ -1,17 +1,17 @@
 'use latest';
 
+const _ = require('lodash');
 const async = require('async');
-const request = require('request');
 const redis = require('redis');
 const twilio = require('twilio');
-const _ = require('lodash');
+const request = require('request');
 
-function sendSMS (accountSid, authToken, number, callback) {
+function sendSMS (accountSid, authToken, twilioNumber, userNumber, callback) {
   const client = twilio(accountSid, authToken);
   client.messages.create({
-      to: number,
-      from: number,
-      body: "Wow there are new champions available at LoL! Go check them out!"
+    to: userNumber,
+    from: twilioNumber,
+    body: 'Wow there are new champions available at LoL! Go check them out!'
   }, (err) => {
     return callback(err);
   });
@@ -20,6 +20,7 @@ function sendSMS (accountSid, authToken, number, callback) {
 function getLocalFreeChampions (client, callback) {
   return client.smembers('freeChampions', callback);
 }
+
 function setLocalFreeChampions (client, championSet, callback) {
   client.del('freeChampions', (err) => {
     if (err) {
@@ -30,10 +31,10 @@ function setLocalFreeChampions (client, championSet, callback) {
 }
 
 function getRemoteFreeChampions (key, callback) {
-  const FREE_CHAMPIONS_URL = 'https://euw.api.pvp.net/api/lol/euw/v1.2/champion?freeToPlay=true&api_key=' + key;
+  const FREE_CHAMPIONS_URL = 'https://euw.api.pvp.net/api/lol/euw/v1.2/champion?freeToPlay=true&api_key='.concat(key);
   return request.get(FREE_CHAMPIONS_URL, (err, response, body) => {
     if (err) {
-      return callback(err)
+      return callback(err);
     }
     if (response.statusCode !== 200) {
       return callback(new Error('Invalid response ' + response.statusCode));
@@ -57,6 +58,7 @@ function isNewChampions (oldChampions, newChampions, callback) {
 module.exports = function (ctx, done) {
   const client = redis.createClient(ctx.data.REDIS_URL);
   let localChampions, remoteChampions;
+
   async.waterfall([
     async.apply(getLocalFreeChampions, client),
     (champions, callback) => {
@@ -74,7 +76,7 @@ module.exports = function (ctx, done) {
       if (!isNewChampions) {
         return callback();
       }
-      return sendSMS(ctx.data.TWILIO_SID, ctx.data.TWILIO_TOKEN, ctx.data.TWILIO_NUMBER, callback);
+      return sendSMS(ctx.data.TWILIO_SID, ctx.data.TWILIO_TOKEN, ctx.data.TWILIO_NUMBER, ctx.data.MY_NUMBER, callback);
     },
     (callback) => {
       return setLocalFreeChampions(client, remoteChampions, callback);
@@ -85,4 +87,4 @@ module.exports = function (ctx, done) {
     }
     return done(null, 'Updated latest free champions!');
   });
-}
+};
